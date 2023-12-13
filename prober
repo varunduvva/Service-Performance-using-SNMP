@@ -1,0 +1,186 @@
+#!/usr/bin/python3
+
+import easysnmp
+from easysnmp import *
+import sys, time, math
+
+Information_Of_agent = sys.argv[1]
+inform_agent = Information_Of_agent.split(':')
+ipaddr_agent = inform_agent[0]
+port_agent = inform_agent[1]
+community_agent = inform_agent[2]
+SampleFreq = float(sys.argv[2])
+Counts_sample = int(sys.argv[3])
+SamplingTime = 1/SampleFreq
+ObjIDs = []
+ObjectIdentifier1=[]
+ObjectIdentifier2=[]
+timer=""
+#print(SampleFreq)
+for kan in range(4,len(sys.argv)):
+	ObjIDs.append(sys.argv[kan])
+ObjIDs.insert(0,'1.3.6.1.2.1.1.3.0')
+#OIDs=[int(float(l)) for l in ObjIDs] 
+#print(ObjIDs)
+
+#def SNMPagentTime():
+#	#AgentTime=[]
+#	session=Session(hostname=ipaddr_agent,remote_port=port_agent,community=community_agent,version=2,timeout=1)
+#	SnmpTime=session.get(ObjIDs)
+#	return int(SnmpTime[0].value)
+session=Session(hostname=ipaddr_agent,remote_port=port_agent,community=community_agent,version=2,timeout=1,retries=3)
+
+def vadv():
+	global ObjectIdentifier1, new_time, timer2
+	output = session.get(ObjIDs)
+	TimerSys= int(output[0].value)/100
+	ObjectIdentifier2 = []
+	#print("timer2 {}".format(TimerSys))
+#	for t in range(0,len(output)):
+#		print("output value{}".format(output[t].value))
+
+	# if int(TimerSys) > 2**32 or int(TimerSys) <= 0:
+	# 	print(" The system just restarted. ")
+
+	for th in range(1,len(output)):
+		if output[th].value!='NOSUCHOBJECT' and output[th].value!='NOSUCHINSTANCE':
+
+			#print(output[th].snmp_type)
+			if output[th].snmp_type=='COUNTER64' or output[th].snmp_type=='GAUGE' or output[th].snmp_type=='COUNTER32' or output[th].snmp_type=='COUNTER':
+				ObjectIdentifier2.append(int(output[th].value))
+				#print("loid2 {}".format(ObjectIdentifier2))
+			else:
+				ObjectIdentifier2.append(output[th].value)
+			#print("loid1 {}".format(ObjectIdentifier1))
+	
+			if count!=0 and len(ObjectIdentifier1)>0:
+				if TimerSys > new_time:	
+					if output[th].snmp_type=='COUNTER' or output[th].snmp_type=='COUNTER32'or output[th].snmp_type=='COUNTER64': 
+						#print("if la oid2 {}".format(ObjectIdentifier2[th-1]))
+						#print("if la oid1 {}".format(ObjectIdentifier1[th-1]))
+						OIDdiff = int(ObjectIdentifier2[th-1]) - int(ObjectIdentifier1[th-1])
+						#print("oiddiff {}".format(OIDdiff))
+						#print(output[th].snmp_type)
+						diff_time=(TimerSys - new_time)
+						#print("time diff {}".format(diff_time))
+						rate = int(OIDdiff / diff_time)
+						#print("rate {}".format(rate))
+						if rate < 0:
+							if TimerSys > new_time:
+								if output[th].snmp_type == 'COUNTER32':
+									#print(output[th].snmp_type)
+									OIDdiff = OIDdiff + (2**32)
+									try:
+										if timer==str(timer2):
+											print(round(OIDdiff/(diff_time)),end="|")
+										else:
+											print(timer2,"|",round(OIDdiff/(diff_time)), end="|");timer=str(timer2)
+
+									except:
+										print(timer2,"|", round(OIDdiff/(diff_time)), end= "|");timer=str(timer2)
+
+								elif output[th].snmp_type == 'COUNTER64':
+									#print(output[th].snmp_type)
+									#diff_time = round(diff_time)
+									#print("time_diff {}".format(diff_time))
+									OIDdiff=OIDdiff+2**64
+									#print(OIDdiff)
+									try:
+										if timer==str(timer2):
+											#print(OIDdiff/(diff_time))
+											print(round(OIDdiff/(diff_time)), end ="|")
+										else:
+											print(timer2, "|", round(OIDdiff/(diff_time)), end="|");timer=str(timer2)
+										
+									except:
+										#print(OIDdiff/diff_time)
+										print(timer2,"|",round(OIDdiff/(diff_time)),end= "|");timer=str(timer2)
+
+							else:
+								print(" This seems like the system was restarted ")
+								break
+
+						else:
+							try:
+								if timer==str(timer2):
+									print( round(rate) ,end= "|")
+									#print("1")
+								else:
+									print(timer2,"|", round(rate), end="|") 
+									timer=str(timer2)
+									#print("2")
+							except:
+								print(timer2 ,"|", round(rate), end="|")  
+								timer=str(timer2)
+								#print("3")
+
+					elif output[th].snmp_type=='GAUGE':
+						OIDdiff = int(ObjectIdentifier2[th-1]) - int(ObjectIdentifier1[th-1])
+						#if OIDdiff>0: OIDdiff="+"+str(OIDdiff)
+						try:
+							if timer==str(timer2):
+								print(ObjectIdentifier2[len(ObjectIdentifier2)-1],"(",+OIDdiff,")", end="|")
+								#print("4")
+							else:
+								print(timer2,"|",ObjectIdentifier2[len(ObjectIdentifier2)-1],"(",+OIDdiff,")", end="|")
+								timer=str(timer2)
+								#print("5")
+						except:
+							print(timer2,"|",ObjectIdentifier2[len(ObjectIdentifier2)-1],"(",+OIDdiff,")", end="|")
+							timer=str(timer2)
+							#print("6")
+
+					elif output[th].snmp_type=='OCTETSTR':
+						try:
+							if timer==str(timer2):
+								print(ObjectIdentifier2[len(ObjectIdentifier2)-1], end="|")
+								#print("7")
+							else:
+								print(timer2,"|",ObjectIdentifier2[len(ObjectIdentifier2)-1], end="|")
+								timer=str(timer2)
+								#print("8")
+						except:
+							print(timer2,"|",ObjectIdentifier2[len(ObjectIdentifier2)-1], end="|")
+							timer=str(timer2)
+							#print("9")
+				else: 
+					print(" This seems like the system was restarted ")
+					break
+	ObjectIdentifier1 = ObjectIdentifier2
+	new_time = TimerSys
+	#print("new time {}".format(new_time))
+if Counts_sample==-1:
+	count = 0
+	ObjectIdentifier1 = []
+	while True:
+		timer2 = time.time()
+		vadv()
+		if count!=0:
+			print(end="\n")
+		ResponseTime = time.time()
+		count = count+1
+		if SamplingTime >= ResponseTime - timer2:
+			time.sleep((SamplingTime- ResponseTime + timer2))
+		else:
+			n=math.ceil((ResponseTime-timer2)/SamplingTime)
+			print(n,"n",((n*SamplingTime)- ResponseTime + timer2))
+			time.sleep(((n*SamplingTime)- ResponseTime + timer2))
+else:
+	ObjectIdentifier1 = []
+	a=Counts_sample
+	for count in range(0,Counts_sample+1):
+		timer2 = time.time()
+		#print("intitial time ",timer2)
+		vadv()
+		if count!=0:
+			print(end="\n")
+		ResponseTime = time.time()
+		#print(" resp time",ResponseTime)
+		#print(-ResponseTime+timer2, "respdiff")
+		#print("sleep",(SamplingTime - ResponseTime + timer2))
+		if SamplingTime >= ResponseTime - timer2:
+			time.sleep((SamplingTime- ResponseTime + timer2))
+		else:
+			n=math.ceil((ResponseTime-timer2)/SamplingTime)
+			#print(n,"n",((n*SamplingTime)- ResponseTime + timer2))
+			time.sleep(((n*SamplingTime)- ResponseTime + timer2))
